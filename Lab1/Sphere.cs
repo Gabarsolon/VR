@@ -15,12 +15,21 @@ namespace rt
 
         public override Intersection GetIntersection(Line line, double minDist, double maxDist)
         {
-			// ADD CODE HERE: Calculate the intersection between the given line and this sphere
+			//ADD CODE HERE
+
+			//(Dx*t+Xo-Vc)^2 = R^2
+			//Dx^2 + 2Dxt(Xo-Vc) + (Xo-Vc)^2-R^2 = 0
+			//  a        b                c
+
+			//Dx^2
 			var a = line.Dx * line.Dx;
-			var b = (line.Dx * line.X0) * 2;
+			//2Dxt(Xo-Vc)
+			var b = (line.Dx * line.X0 ) * 2;
 			b -= (line.Dx * Center) * 2;
-			var c = (line.X0 * line.X0) + (Center * Center) - (Radius * Radius) - (line.X0 * Center) * 2;
-			var discriminant = (b * b) - (a * c * 4.0);
+			//(Xo-Vc)^2-R^2
+			var c = (line.X0 * line.X0) - 2 * (line.X0 * Center)+ (Center * Center) - (Radius * Radius);
+
+			var discriminant = (b * b) - (4.0 * a * c);
 			if (discriminant < 0.001)
 				return new Intersection(false, false, this, line, 0);
 			var t1 = -b - Math.Sqrt(discriminant);
@@ -33,12 +42,12 @@ namespace rt
 				return new Intersection(false, false, this, line, 0);
 			if (validT1 && !validT2)
 				return new Intersection(true, true, this, line, t1);
-			if (!validT1)
+			if (!validT1 && validT2)
 				return new Intersection(true, true, this, line, t2);
-			var mn = t1;
-			if (t2 < mn)
-				mn = t2;
-			return new Intersection(true, true, this, line, mn);
+			var minimum_between_t1_and_t2 = t1;
+			if (t2 < minimum_between_t1_and_t2)
+				minimum_between_t1_and_t2 = t2;
+			return new Intersection(true, true, this, line, minimum_between_t1_and_t2);
         }
 
         public override Vector Normal(Vector v)

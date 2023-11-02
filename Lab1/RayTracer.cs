@@ -47,11 +47,19 @@ namespace rt
         private bool IsLit(Vector point, Light light)
         {
             // ADD CODE HERE: Detect whether the given point has a clear line of sight to the given light
-            return true;
-        }
+            var line = new Line(light.Position, point);
+
+            var frontPlaneDistance = 0.0;
+            var backPlaneDistance = 1000.0;
+            var intersection = FindFirstIntersection(line, frontPlaneDistance, backPlaneDistance);
+            if (!intersection.Valid || !intersection.Visible)
+                return true;
+            return intersection.T > (light.Position - point).Length() - 0.001;
+		}
 
         public void Render(Camera camera, int width, int height, string filename)
         {
+            //ADD CODE HERE
             var background = new Color();
             var viewParallel = (camera.Up ^ camera.Direction).Normalize();
 
@@ -62,7 +70,6 @@ namespace rt
             {
                 for (var j = 0; j < height; j++)
                 {
-                    // ADD CODE HERE: Implement pixel color calculation
                     var x1 = camera.Position +
                         vecW +
                         viewParallel * ImageToViewPlane(i, width, camera.ViewPlaneWidth) +
@@ -70,7 +77,49 @@ namespace rt
                     var ray = new Line(camera.Position, x1);
                     var intersection = FindFirstIntersection(ray, camera.FrontPlaneDistance, camera.BackPlaneDistance);
                     if(intersection.Valid && intersection.Visible)
-                        image.SetPixel(i, j, intersection.Geometry.Material.Ambient);
+                    {
+                        var color = new Color();
+                        foreach(var light in lights)
+                        {
+                            var sumOfColorsFromLight = new Color(intersection.Geometry.Material.Ambient * light.Ambient);
+                            if(IsLit(intersection.Position, light))
+                            {
+                                //v
+                                var intersectionPositionVector = intersection.Position;
+                                //e
+                                var vectorFromTheIntersectionPointToTheCamera = (camera.Position - intersectionPositionVector).Normalize();
+                                //n
+                                var normalToTheSurfaceAtTheIntersectionPoint = ((Sphere)intersection.Geometry).Normal(intersection.Position);
+                                //t
+                                var vectorFromTheIntersectionPointToTheLight = (light.Position - vectorFromTheIntersectionPointToTheCamera).Normalize();
+                                //r
+                                var reflectionVector = 
+                                    (normalToTheSurfaceAtTheIntersectionPoint * 
+                                    (normalToTheSurfaceAtTheIntersectionPoint * vectorFromTheIntersectionPointToTheLight * 2) 
+                                    - vectorFromTheIntersectionPointToTheLight)
+                                    .Normalize();
+                                var n_times_t = normalToTheSurfaceAtTheIntersectionPoint * vectorFromTheIntersectionPointToTheLight;
+
+								if (n_times_t > 0)
+                                {
+                                    sumOfColorsFromLight += intersection.Geometry.Material.Diffuse *
+                                        light.Diffuse *
+                                        (n_times_t);
+                                }
+
+                                var e_times_r = vectorFromTheIntersectionPointToTheCamera * reflectionVector;
+								if (e_times_r > 0)
+                                {
+                                    sumOfColorsFromLight += intersection.Geometry.Material.Specular * 
+                                        light.Specular *
+                                        Math.Pow(e_times_r, intersection.Geometry.Material.Shininess);
+                                }
+                                sumOfColorsFromLight *= light.Intensity;
+							}
+                            color += sumOfColorsFromLight;
+                        }
+                        image.SetPixel(i, j, color);
+					}
                     else
                         image.SetPixel(i, j, background);
                 }
