@@ -16,5 +16,6 @@
         }
 
         public abstract Intersection GetIntersection(Line line, double minDist, double maxDist);
-    }
+
+	}
 }
