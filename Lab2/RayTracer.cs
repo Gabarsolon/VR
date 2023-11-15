@@ -101,7 +101,7 @@ namespace rt
 								{
 									sumOfColorsFromLight += intersection.Geometry.Material.Diffuse *
 										light.Diffuse *
-										(n_times_t);
+										n_times_t;
 								}
 
 								var e_times_r = vectorFromTheIntersectionPointToTheCamera * reflectionVector;

@@ -26,28 +26,12 @@ namespace rt
 
         public Vector Normal(Vector point)
         {
-            // Calculate the normalized normal vector at the point on the ellipsoid
-            double a2 = SemiAxesLength.X * SemiAxesLength.X;
-            double b2 = SemiAxesLength.Y * SemiAxesLength.Y;
-            double c2 = SemiAxesLength.Z * SemiAxesLength.Z;
-
-            double x = point.X - Center.X;
-            double y = point.Y - Center.Y;
-            double z = point.Z - Center.Z;
-
-            // Calculate the components of the normal vector
-            double nx = 2 * x / a2;
-            double ny = 2 * y / b2;
-            double nz = 2 * z / c2;
-
-            // Normalize the normal vector
-            double length = Math.Sqrt(nx * nx + ny * ny + nz * nz);
-            nx /= length;
-            ny /= length;
-            nz /= length;
-
-            return new Vector(nx, ny, nz);
-        }
+			return new Vector(
+			   2 * (point.X - center.X) / (A * A),
+			   2 * (point.Y - center.Y) / (B * B),
+			   2 * (point.Z - center.Z) / (C * C)
+		   ).Normalize();
+		}
 
 		public override Intersection GetIntersection(Line line, double minDist, double maxDist)
 		{
