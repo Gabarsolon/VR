@@ -43,26 +43,71 @@ namespace rt
 
         private bool IsLit(Vector point, Light light)
         {
-            // TODO: ADD CODE HERE
-            return true;
-        }
+			var ray = new Line(light.Position, point);
+			var intersection = FindFirstIntersection(ray, 0, 1000000);
+			if (!intersection.Valid || !intersection.Visible)
+			{
+				return true;
+			}
+			return intersection.T > (light.Position - point).Length() - 0.001;
+		}
 
         public void Render(Camera camera, int width, int height, string filename)
         {
             var background = new Color(0.2, 0.2, 0.2, 1.0);
 
-            var image = new Image(width, height);
+			var viewParallel = (camera.Up ^ camera.Direction).Normalize();
 
-            for (var i = 0; i < width; i++)
-            {
-                for (var j = 0; j < height; j++)
-                {
-                    // TODO: ADD CODE HERE
-                    image.SetPixel(i, j, background);
-                }
-            }
+			var image = new Image(width, height);
 
-            image.Store(filename);
-        }
+			var vecW = camera.Direction * camera.ViewPlaneDistance;
+			for (var i = 0; i < width; i++)
+			{
+				for (var j = 0; j < height; j++)
+				{
+					var pointOnViewPlane = camera.Position + vecW +
+										   camera.Up * ImageToViewPlane(j, height, camera.ViewPlaneHeight) +
+										   viewParallel * ImageToViewPlane(i, width, camera.ViewPlaneWidth);
+					var ray = new Line(camera.Position, pointOnViewPlane);
+					var intersection = FindFirstIntersection(ray, camera.FrontPlaneDistance, camera.BackPlaneDistance);
+					if (intersection.Valid && intersection.Visible)
+					{
+						var color = new Color();
+						foreach (var light in lights)
+						{
+							var lightColor = new Color();
+							lightColor += intersection.Material.Ambient * light.Ambient;
+							if (IsLit(intersection.Position, light))
+							{
+								var t = (light.Position - intersection.Position).Normalize();
+								var n = intersection.Normal;
+								var e = (camera.Position - intersection.Position).Normalize();
+								var r = (n * (n * t) * 2 - t).Normalize();
+								if (n * t > 0)
+								{
+									lightColor += intersection.Material.Diffuse * light.Diffuse * (n * t);
+								}
+
+								if (e * r > 0)
+								{
+									lightColor += intersection.Material.Specular * light.Specular *
+												  Math.Pow(e * r, intersection.Material.Shininess);
+								}
+
+								lightColor *= light.Intensity;
+							}
+							color += lightColor;
+						}
+						image.SetPixel(i, j, color);
+					}
+					else
+					{
+						image.SetPixel(i, j, background);
+					}
+				}
+			}
+
+			image.Store(filename);
+		}
     }
 }

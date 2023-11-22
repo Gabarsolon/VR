@@ -94,7 +94,8 @@ namespace rt
                     );
             
                     var filename = frames+"/" + $"{k + 1:000}" + ".png";
-            
+                    
+                    if(filename.Equals("frames/023.png"))
                     rt.Render(camera, width, height, filename);
                     Console.WriteLine($"Frame {k+1}/{n} completed");
                 });

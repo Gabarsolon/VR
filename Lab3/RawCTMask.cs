@@ -60,10 +60,114 @@ public class RawCtMask: Geometry
 
         return _data[z * _resolution[1] * _resolution[0] + y * _resolution[0] + x];
     }
+	public Color sampleColorThroughCube(Line line, double t, int[] oldIndices)
+	{
+		Vector coordinatePosition = line.CoordinateToPosition(t);
+		int[] indexes = GetIndexes(coordinatePosition);
 
-    public override Intersection GetIntersection(Line line, double minDist, double maxDist)
+		// TODO: I don't understand why this is correct. The index value is correct in both 0 and in _resolution[0/1/2]. Omit either one and you get weird rendering errors. Not sure why.
+		if (indexes[0] < 0 || indexes[1] < 0 || indexes[2] < 0 || indexes[0] > _resolution[0] ||
+			indexes[1] > _resolution[1] || indexes[2] > _resolution[2])
+		{
+			return new Color();
+		}
+
+		//Maybe not necessary. This ensures a cell's color is only sampled once.
+		if (oldIndices.Length != 0)
+		{
+			if (oldIndices[0] == indexes[0] && oldIndices[1] == indexes[1] && oldIndices[2] == indexes[2])
+				return sampleColorThroughCube(line, t + 1, indexes);
+		}
+
+		Color c = GetColor(coordinatePosition);
+		return c * c.Alpha + sampleColorThroughCube(line, t + 1, indexes) * (1 - c.Alpha);
+	}
+	public override Intersection GetIntersection(Line line, double minDist, double maxDist)
     {
         // ADD CODE HERE
+        Vector rayDir = line.Dx;
+        Vector rayOrig = line.X0;
+
+        double tNear = minDist;
+        double tFar = maxDist;
+
+        // Compute intersections with the slab
+        for (int i = 0; i < 3; i++)
+        {
+            double invRayDir, t0, t1;
+            if (i == 0)
+            {
+                invRayDir = 1.0 / rayDir.X;
+                t0 = (_v0.X - rayOrig.X) * invRayDir;
+                t1 = (_v1.X - rayOrig.X) * invRayDir;
+            }
+            else if (i == 1)
+            {
+                invRayDir = 1.0 / rayDir.Y;
+                t0 = (_v0.Y - rayOrig.Y) * invRayDir;
+                t1 = (_v1.Y - rayOrig.Y) * invRayDir;
+            }
+            else
+            {
+                invRayDir = 1.0 / rayDir.Z;
+                t0 = (_v0.Z - rayOrig.Z) * invRayDir;
+                t1 = (_v1.Z - rayOrig.Z) * invRayDir;
+            }
+
+            if (invRayDir < 0.0)
+            {
+                double temp = t0;
+                t0 = t1;
+                t1 = temp;
+            }
+
+            tNear = t0 > tNear ? t0 : tNear;
+            tFar = t1 < tFar ? t1 : tFar;
+
+            if (tNear > tFar)
+                return Intersection.NONE;
+        }
+
+        // Compute the starting and ending points of the intersection in world coordinates
+        Vector pNear = rayOrig + rayDir * tNear;
+        Vector pFar = rayOrig + rayDir * tFar;
+
+        // Get the indexes of the starting and ending points
+        int[] nearIndexes = GetIndexes(pNear);
+        int[] farIndexes = GetIndexes(pFar);
+
+        // Calculate the step size and initialize the current position
+        Vector step = (pFar - pNear) / Math.Max(Math.Max(_resolution[0], _resolution[1]), _resolution[2]);
+        Vector currentPos = pNear;
+
+        // Traverse the volume along the ray
+        while (true)
+        {
+            int[] indexes = GetIndexes(currentPos);
+
+            if (indexes[0] >= 0 && indexes[0] < _resolution[0] &&
+                indexes[1] >= 0 && indexes[1] < _resolution[1] &&
+                indexes[2] >= 0 && indexes[2] < _resolution[2])
+            {
+                ushort value = Value(indexes[0], indexes[1], indexes[2]);
+                if (value > 0)
+                {
+                    // You found an intersection, do something with it.
+                    // For now, let's return a basic Intersection object.
+                    //return new Intersection(true, tNear, GetColor(currentPos), GetNormal(currentPos), );
+                    Color color = sampleColorThroughCube(line, tNear, GetIndexes(line.CoordinateToPosition(tNear)));
+                    
+					return new Intersection(true, true, this, line, tNear, GetNormal(currentPos), Material.FromColor(color) ,color);
+                }
+            }
+
+            // Move to the next position
+            currentPos += step;
+
+            // Check if you have reached or passed the far intersection point
+            if ((currentPos - pFar) * (rayDir) > 0)
+                break;
+        }
         return Intersection.NONE;
     }
     
